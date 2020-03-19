@@ -1,0 +1,15 @@
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  Saver:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: saver
+      Runtime: go1.x
+      CodeUri: ../cmd/saver
+
+  Table:
+    Type: AWS::Serverless::SimpleTable
+
+
+
