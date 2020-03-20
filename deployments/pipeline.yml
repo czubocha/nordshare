@@ -85,9 +85,22 @@ Resources:
               InputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
+            - Name: BuildFrontend
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref BuildFrontend
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildFrontendArtifact
+              RunOrder: 1
         - Name: Deploy
           Actions:
-            - Name: Deploy
+            - Name: DeployBackend
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -95,14 +108,44 @@ Resources:
                 Version: 1
               Configuration:
                 ActionMode: CREATE_UPDATE
-                StackName: !Ref AppName
-                RoleArn: !GetAtt DeployRole.Arn
+                StackName: !Sub ${AppName}-backend
+                RoleArn: !GetAtt DeployBackendRole.Arn
+                Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
                 TemplatePath: BuildArtifact::packaged.yml
               InputArtifacts:
                 - Name: BuildArtifact
               RunOrder: 1
+            - Name: DeployFrontendInfra
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Sub ${AppName}-frontend
+                RoleArn: !GetAtt DeployFrontendRole.Arn
+                TemplatePath: SourceArtifact::deployments/frontend.yml
+                OutputFileName: stack-output.json
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: FrontendInfaOutput
+              RunOrder: 1
+            - Name: DeployFrontend
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: S3
+                Version: 1
+              Configuration:
+                BucketName: FrontendInfaOutput::stack-output.json
+                Extract: true
+              InputArtifacts:
+                - Name: FrontendInfaOutput
+              RunOrder: 2
 
-  DeployRole:
+  DeployBackendRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -120,6 +163,92 @@ Resources:
               - Action: cloudformation:DescribeStacks
                 Effect: Allow
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppName}/*
+              - Action: cloudformation:CreateChangeSet
+                Effect: Allow
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::Partition}:transform/Serverless-2016-10-31
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::Partition}:transform/Include
+              - Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:GetRole
+                  - iam:PassRole
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AppName}*
+              - Action:
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:ListTags
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:GetFunction
+                  - lambda:ListVersionsByFunction
+                  - lambda:PublishVersion
+                  - lambda:CreateAlias
+                  - lambda:DeleteAlias
+                  - lambda:GetAlias
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${AppName}*
+              - Action: s3:GetObject
+                Effect: Allow
+                Resource: !Sub ${ArtifactStore.Arn}/*
+              - Action:
+                  - codedeploy:CreateApplication
+                  - codedeploy:DeleteApplication
+                  - codedeploy:RegisterApplicationRevision
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:codedeploy:${AWS::Region}:${AWS::AccountId}:application:${AppName}*
+              - Action:
+                  - codedeploy:CreateDeploymentGroup
+                  - codedeploy:DeleteDeploymentGroup
+                  - codedeploy:CreateDeployment
+                  - codedeploy:DeleteDeployment
+                  - codedeploy:GetDeployment
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:${AppName}*
+              - Action:
+                  - codedeploy:GetDeploymentConfig
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:*
+              - Action: logs:DescribeLogGroups
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group::log-stream*
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:PutRetentionPolicy
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AppName}*
+              - Action:
+                  - apigateway:GET
+                  - apigateway:POST
+                  - apigateway:DELETE
+                  - apigateway:PATCH
+                  - apigateway:PUT
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/restapis*
+              - Action:
+                  - cloudfront:CreateDistribution
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:TagResource
+                  - cloudfront:UnTagResource
+                  - cloudfront:GetDistribution
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution*
+
+  DeployFrontendRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+        Version: 2012-10-17
 
   PipelineRole:
     Type: AWS::IAM::Role
@@ -147,14 +276,18 @@ Resources:
                 Resource:
                   - !GetAtt Build.Arn
                   - !GetAtt Test.Arn
+                  - !GetAtt BuildFrontend.Arn
               - Action:
                   - cloudformation:DescribeStacks
                   - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
                 Effect: Allow
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppName}/*
-              - Action: s3:GetObject
+              - Action:
+                  - s3:GetObject
+                  - s3:PutObject
                 Effect: Allow
-                Resource: !Sub ${ArtifactStore.Arn}/*
+                Resource: !Sub arn:${AWS::Partition}:s3:::${AppName}*
 
   Build:
     Type: AWS::CodeBuild::Project
@@ -171,7 +304,7 @@ Resources:
       TimeoutInMinutes: 10
       SourceVersion: !Ref GitHubBranch
       Source:
-        BuildSpec: build/build.yml
+        BuildSpec: build/backend.yml
         Type: CODEPIPELINE
       ServiceRole: !GetAtt BuildRole.Arn
 
@@ -191,6 +324,25 @@ Resources:
       SourceVersion: !Ref GitHubBranch
       Source:
         BuildSpec: build/test.yml
+        Type: CODEPIPELINE
+      ServiceRole: !GetAtt BuildRole.Arn
+
+  BuildFrontend:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Cache:
+        Location: !Sub ${ArtifactStore}/build-frontend-cache
+        Type: S3
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Type: LINUX_CONTAINER
+      TimeoutInMinutes: 10
+      SourceVersion: !Ref GitHubBranch
+      Source:
+        BuildSpec: build/frontend.yml
         Type: CODEPIPELINE
       ServiceRole: !GetAtt BuildRole.Arn
 

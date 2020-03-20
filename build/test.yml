@@ -5,6 +5,6 @@ phases:
       golang: 1.14
   build:
     commands:
-      - sam validate -t deployments/template.yml
+      - sam validate -t deployments/backend.yml
       - go vet ./...
       - go test ./...

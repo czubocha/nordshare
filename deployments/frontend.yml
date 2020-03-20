@@ -1,0 +1,33 @@
+Resources:
+
+  Frontend:
+    Type: AWS::S3::Bucket
+    Properties:
+      LoggingConfiguration:
+        DestinationBucketName: !Ref FrontendAccessLogs
+      WebsiteConfiguration:
+        IndexDocument: index.js
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Frontend
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Action: s3:GetObject
+          Effect: Allow
+          Principal: '*'
+          Resource: !Sub ${Frontend.Arn}/*
+
+  FrontendAccessLogs:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: LogDeliveryWrite
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 30
+            Status: Enabled
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt Frontend.WebsiteURL

@@ -1,0 +1,60 @@
+openapi: 3.0.1
+info:
+  title: nordshare
+  version: 1.0.0
+  x-logo:
+    url: https://www.freelogodesign.org/file/app/client/thumb/cd0a9e5d-c7c0-4b69-ad0d-4edd4e2aae19_200x200.png?1584650772888
+    altText: nordshare
+  contact:
+    email: tomasz.czubcha@gmail.com
+paths:
+  /notes:
+    post:
+      summary: save a note
+      x-amazon-apigateway-integration:
+        httpMethod: POST
+        type: aws_proxy
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Saver.Alias}/invocations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/note'
+      responses:
+        201:
+          description: note saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: id of saved note
+              example:
+                {"id": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef"}
+
+servers:
+  - url: https://nordshare.com
+
+components:
+  schemas:
+    note:
+      type: object
+      description: note with properties
+      properties:
+        content:
+          type: string
+          description: content of note
+        ttl:
+          type: string
+          description: expiration time of note
+        readPassword:
+          type: string
+          description: password for read-only access
+        adminPasword:
+          type: string
+          description: password for note modification
+      required:
+        - content

@@ -5,7 +5,7 @@ phases:
       golang: 1.14
   build:
     commands:
-      - sam build -t deployments/template.yml -b build-output
+      - sam build -t deployments/backend.yml -b build-output
   post_build:
     commands:
       - sam package -t build-output/template.yaml --output-template-file packaged.yml --s3-bucket $S3 --s3-prefix build-output

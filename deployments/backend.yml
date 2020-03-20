@@ -1,0 +1,81 @@
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Runtime: go1.x
+    Timeout: 5
+    Handler: handler
+    AutoPublishAlias: live
+    DeploymentPreference:
+      Type: AllAtOnce
+
+Resources:
+  Saver:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../cmd/saver
+
+  Table:
+    Type: AWS::Serverless::SimpleTable
+
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      AccessLogSetting:
+        DestinationArn: !GetAtt AccessLogGroup.Arn
+        Format: >-
+          {"stage" : "$context.stage",
+          "request_id" : "$context.requestId",
+          "api_id" : "$context.apiId",
+          "resource_path" : "$context.resourcePath",
+          "resource_id" : "$context.resourceId",
+          "http_method" : "$context.httpMethod",
+          "source_ip" : "$context.identity.sourceIp",
+          "user-agent" : "$context.identity.userAgent",
+          "account_id" : "$context.identity.accountId",
+          "api_key" : "$context.identity.apiKey",
+          "caller" : "$context.identity.caller",
+          "user" : "$context.identity.user",
+          "user_arn" : "$context.identity.userArn"}
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: ../api/openapi.yml
+      OpenApiVersion: 3.0.3
+      StageName: stage
+      EndpointConfiguration: REGIONAL
+
+  AccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ${AWS::StackName}-api-access-log
+      RetentionInDays: 14
+
+  CloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        CacheBehaviors:
+          - ForwardedValues:
+              QueryString: true
+            PathPattern: api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+        DefaultCacheBehavior:
+          ForwardedValues:
+            QueryString: true
+          TargetOriginId: api
+          ViewerProtocolPolicy: redirect-to-https
+        Origins:
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+            DomainName: !Sub ${Api}.execute-api.${AWS::Region}.amazonaws.com
+            Id: api
+            OriginPath: !Sub /${Api.Stage}
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+            DomainName: !Sub ${Api}.execute-api.${AWS::Region}.amazonaws.com
+            Id: api
+            OriginPath: !Sub /${Api.Stage}
