@@ -6,5 +6,6 @@ phases:
   build:
     commands:
       - sam validate -t deployments/backend.yml
+      - sam validate -t deployments/cloudfront.yml
       - go vet ./...
       - go test ./...

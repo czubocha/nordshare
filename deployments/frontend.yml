@@ -1,26 +1,38 @@
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  AppName:
+    Type: String
+  RefererSecret:
+    Type: String
+
 Resources:
 
-  Frontend:
+  Website:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: !Ref AppName
       LoggingConfiguration:
-        DestinationBucketName: !Ref FrontendAccessLogs
+        DestinationBucketName: !Ref WebsiteAccessLogs
       WebsiteConfiguration:
         IndexDocument: index.js
 
-  FrontendBucketPolicy:
+  WebsiteBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref Frontend
+      Bucket: !Ref Website
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          Action: s3:GetObject
-          Effect: Allow
-          Principal: '*'
-          Resource: !Sub ${Frontend.Arn}/*
+          - Action: s3:GetObject
+            Effect: Allow
+            Principal: '*'
+            Resource: !Sub ${Website.Arn}/*
+            Condition:
+              StringLike:
+                aws:Referer: !Ref RefererSecret
 
-  FrontendAccessLogs:
+  WebsiteAccessLogs:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: LogDeliveryWrite
@@ -29,5 +41,7 @@ Resources:
           - ExpirationInDays: 30
             Status: Enabled
 Outputs:
+  WebsiteBucketName:
+    Value: !Ref Website
   WebsiteURL:
-    Value: !GetAtt Frontend.WebsiteURL
+    Value: !GetAtt Website.WebsiteURL

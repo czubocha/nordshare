@@ -1,6 +1,11 @@
 Transform: AWS::Serverless-2016-10-31
+
 Parameters:
   AppName:
+    Type: String
+  FrontendBucketName:
+    Type: String
+  FrontendWebsiteURL:
     Type: String
   GitHubOwner:
     Type: String
@@ -8,12 +13,13 @@ Parameters:
     Type: String
   GitHubBranch:
     Type: String
-  GitHubOAuthTokenSecretName:
+  GitHubOauthToken:
     Type: String
-  GitHubOAuthTokenSecretKey:
+  RefererSecret:
     Type: String
 
 Resources:
+
   ArtifactStore:
     Type: AWS::S3::Bucket
 
@@ -22,8 +28,7 @@ Resources:
     Properties:
       Authentication: GITHUB_HMAC
       AuthenticationConfiguration:
-        SecretToken:
-          Fn::Sub: "{{resolve:secretsmanager:${GitHubOAuthTokenSecretName}:SecretString:${GitHubOAuthTokenSecretKey}}}"
+        SecretToken: !Ref GitHubOauthToken
       Filters:
         - JsonPath: "$.ref"
           MatchEquals: refs/heads/{Branch}
@@ -53,8 +58,7 @@ Resources:
                 Owner: !Ref GitHubOwner
                 Repo: !Ref GitHubRepo
                 Branch: !Ref GitHubBranch
-                OAuthToken:
-                  Fn::Sub: "{{resolve:secretsmanager:${GitHubOAuthTokenSecretName}:SecretString:${GitHubOAuthTokenSecretKey}}}"
+                OAuthToken: !Ref GitHubOauthToken
                 PollForSourceChanges: false
               OutputArtifacts:
                 - Name: SourceArtifact
@@ -112,25 +116,11 @@ Resources:
                 RoleArn: !GetAtt DeployBackendRole.Arn
                 Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
                 TemplatePath: BuildArtifact::packaged.yml
-              InputArtifacts:
-                - Name: BuildArtifact
-              RunOrder: 1
-            - Name: DeployFrontendInfra
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: 1
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                StackName: !Sub ${AppName}-frontend
-                RoleArn: !GetAtt DeployFrontendRole.Arn
-                TemplatePath: SourceArtifact::deployments/frontend.yml
                 OutputFileName: stack-output.json
               InputArtifacts:
-                - Name: SourceArtifact
+                - Name: BuildArtifact
               OutputArtifacts:
-                - Name: FrontendInfaOutput
+                - Name: BackendStackOutput
               RunOrder: 1
             - Name: DeployFrontend
               ActionTypeId:
@@ -139,10 +129,32 @@ Resources:
                 Provider: S3
                 Version: 1
               Configuration:
-                BucketName: FrontendInfaOutput::stack-output.json
+                BucketName: !Ref FrontendBucketName
                 Extract: true
               InputArtifacts:
-                - Name: FrontendInfaOutput
+                - Name: BuildFrontendArtifact
+              RunOrder: 1
+            - Name: DeployCloudfront
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Sub ${AppName}-cloudfront
+                RoleArn: !GetAtt DeployCloudfrontRole.Arn
+                TemplatePath: SourceArtifact::deployments/cloudfront.yml
+                ParameterOverrides: !Sub |
+                  {
+                    "ApiId": {"Fn::GetParam": ["BackendStackOutput", "stack-output.json", "ApiId"]},
+                    "ApiStage": {"Fn::GetParam": ["BackendStackOutput", "stack-output.json", "ApiStage"]},
+                    "FrontendWebsiteURL": "${FrontendWebsiteURL}",
+                    "RefererSecret": "${RefererSecret}"
+                  }
+              InputArtifacts:
+                - Name: BackendStackOutput
+                - Name: SourceArtifact
               RunOrder: 2
 
   DeployBackendRole:
@@ -162,7 +174,7 @@ Resources:
             Statement:
               - Action: cloudformation:DescribeStacks
                 Effect: Allow
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppName}/*
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppName}*
               - Action: cloudformation:CreateChangeSet
                 Effect: Allow
                 Resource:
@@ -175,6 +187,7 @@ Resources:
                   - iam:DetachRolePolicy
                   - iam:GetRole
                   - iam:PassRole
+                  - iam:ResourceTag*
                 Effect: Allow
                 Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AppName}*
               - Action:
@@ -189,6 +202,8 @@ Resources:
                   - lambda:CreateAlias
                   - lambda:DeleteAlias
                   - lambda:GetAlias
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
                 Effect: Allow
                 Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${AppName}*
               - Action: s3:GetObject
@@ -230,16 +245,14 @@ Resources:
                 Effect: Allow
                 Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/restapis*
               - Action:
-                  - cloudfront:CreateDistribution
-                  - cloudfront:UpdateDistribution
-                  - cloudfront:DeleteDistribution
-                  - cloudfront:TagResource
-                  - cloudfront:UnTagResource
-                  - cloudfront:GetDistribution
+                  - dynamodb:CreateTable
+                  - dynamodb:UpdateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
                 Effect: Allow
-                Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution*
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AppName}*
 
-  DeployFrontendRole:
+  DeployCloudfrontRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -249,6 +262,35 @@ Resources:
             Principal:
               Service: cloudformation.amazonaws.com
         Version: 2012-10-17
+      Policies:
+        - PolicyName: CodePipelineAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - cloudfront:CreateDistribution
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:TagResource
+                  - cloudfront:UnTagResource
+                  - cloudfront:GetDistribution
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution*
+              - Action:
+                  - cloudfront:CreateCloudFrontOriginAccessIdentity
+                  - cloudfront:UpdateCloudFrontOriginAccessIdentity
+                  - cloudfront:DeleteCloudFrontOriginAccessIdentity
+                  - cloudfront:GetCloudFrontOriginAccessIdentityConfig
+                Effect: Allow
+                Resource: '*'
+              - Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:PutLifecycleConfiguration
+                  - s3:GetBucketAcl
+                  - s3:PutBucketAcl
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:s3:::${AppName}*
 
   PipelineRole:
     Type: AWS::IAM::Role
@@ -282,7 +324,7 @@ Resources:
                   - cloudformation:CreateStack
                   - cloudformation:UpdateStack
                 Effect: Allow
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppName}/*
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppName}*
               - Action:
                   - s3:GetObject
                   - s3:PutObject

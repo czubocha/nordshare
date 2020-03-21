@@ -52,30 +52,8 @@ Resources:
       LogGroupName: !Sub ${AWS::StackName}-api-access-log
       RetentionInDays: 14
 
-  CloudFront:
-    Type: AWS::CloudFront::Distribution
-    Properties:
-      DistributionConfig:
-        Enabled: true
-        CacheBehaviors:
-          - ForwardedValues:
-              QueryString: true
-            PathPattern: api/*
-            TargetOriginId: api
-            ViewerProtocolPolicy: redirect-to-https
-        DefaultCacheBehavior:
-          ForwardedValues:
-            QueryString: true
-          TargetOriginId: api
-          ViewerProtocolPolicy: redirect-to-https
-        Origins:
-          - CustomOriginConfig:
-              OriginProtocolPolicy: https-only
-            DomainName: !Sub ${Api}.execute-api.${AWS::Region}.amazonaws.com
-            Id: api
-            OriginPath: !Sub /${Api.Stage}
-          - CustomOriginConfig:
-              OriginProtocolPolicy: https-only
-            DomainName: !Sub ${Api}.execute-api.${AWS::Region}.amazonaws.com
-            Id: api
-            OriginPath: !Sub /${Api.Stage}
+Outputs:
+  ApiId:
+    Value: !Ref Api
+  ApiStage:
+    Value: !Ref Api.Stage

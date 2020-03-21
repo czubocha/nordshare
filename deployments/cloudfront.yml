@@ -1,0 +1,53 @@
+Parameters:
+  ApiId:
+    Type: String
+  ApiStage:
+    Type: String
+  FrontendWebsiteURL:
+    Type: String
+  RefererSecret:
+    Type: String
+
+Resources:
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Logging:
+          Bucket: !GetAtt AccessLogs.DomainName
+          IncludeCookies: true
+        CacheBehaviors:
+          - ForwardedValues:
+              QueryString: true
+            AllowedMethods: [GET,HEAD,OPTIONS,PUT,POST,PATCH,DELETE]
+            PathPattern: api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+        DefaultCacheBehavior:
+          ForwardedValues:
+            QueryString: true
+          TargetOriginId: frontend
+          ViewerProtocolPolicy: redirect-to-https
+        Origins:
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+            DomainName: !Sub ${ApiId}.execute-api.${AWS::Region}.amazonaws.com
+            Id: api
+            OriginPath: !Sub /${ApiStage}
+          - Id: frontend
+            DomainName: !Select [2, !Split [/, !Ref FrontendWebsiteURL]]
+            OriginCustomHeaders:
+              - HeaderName: Referer
+                HeaderValue: !Ref RefererSecret
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+
+  AccessLogs:
+    Type: AWS::S3::Bucket
+    Properties:
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 30
+            Status: Enabled

@@ -1,0 +1,44 @@
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  AppName:
+    Type: String
+  GitHubOwner:
+    Type: String
+  GitHubRepo:
+    Type: String
+  GitHubBranch:
+    Type: String
+  SecretName:
+    Type: String
+  RefererSecretKey:
+    Type: String
+  GitHubTokenSecretKey:
+    Type: String
+
+Resources:
+
+  Frontend:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        AppName: !Ref AppName
+        RefererSecret:
+          Fn::Sub: "{{resolve:secretsmanager:${SecretName}:SecretString:${RefererSecretKey}}}"
+      TemplateURL: frontend.yml
+
+  Pipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        AppName: !Ref AppName
+        FrontendBucketName: !GetAtt Frontend.Outputs.WebsiteBucketName
+        FrontendWebsiteURL: !GetAtt Frontend.Outputs.WebsiteURL
+        GitHubOwner: !Ref GitHubOwner
+        GitHubRepo: !Ref GitHubRepo
+        GitHubBranch: !Ref GitHubBranch
+        GitHubOauthToken:
+          Fn::Sub: "{{resolve:secretsmanager:${SecretName}:SecretString:${GitHubTokenSecretKey}}}"
+        RefererSecret:
+          Fn::Sub: "{{resolve:secretsmanager:${SecretName}:SecretString:${RefererSecretKey}}}"
+      TemplateURL: pipeline.yml

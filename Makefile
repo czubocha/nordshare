@@ -1,20 +1,25 @@
-pipeline_delete:
-	aws cloudformation delete-stack --stack-name nordshare-pipeline
+.EXPORT_ALL_VARIABLES:
 
-pipeline_deploy:
+APP_NAME = nordshare
+
+parent_deploy:
+	sam validate -t deployments/parent.yml
+	sam validate -t deployments/frontend.yml
 	sam validate -t deployments/pipeline.yml
-	sam deploy --template-file deployments/pipeline.yml --stack-name nordshare-pipeline \
-		--capabilities CAPABILITY_IAM \
-		--parameter-overrides ParameterKey=AppName,ParameterValue=nordshare \
-	ParameterKey=GitHubOwner,ParameterValue=czubocha \
-   	ParameterKey=GitHubRepo,ParameterValue=nordshare \
-  	ParameterKey=GitHubBranch,ParameterValue=master \
-	ParameterKey=GitHubOAuthTokenSecretName,ParameterValue=github \
-	ParameterKey=GitHubOAuthTokenSecretKey,ParameterValue=token
+	sam deploy --template-file deployments/parent.yml --stack-name ${APP_NAME} \
+		--s3-bucket ${APP_NAME}-templates \
+		--capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+		--parameter-overrides ParameterKey=AppName,ParameterValue=${APP_NAME} \
+        	ParameterKey=GitHubOwner,ParameterValue=czubocha \
+           	ParameterKey=GitHubRepo,ParameterValue=${APP_NAME} \
+          	ParameterKey=GitHubBranch,ParameterValue=master \
+        	ParameterKey=SecretName,ParameterValue=${APP_NAME} \
+        	ParameterKey=GitHubTokenSecretKey,ParameterValue=github-token \
+        	ParameterKey=RefererSecretKey,ParameterValue=referer
 
 backend_deploy:
 	sam validate -t deployments/backend.yml
 	sam build -t deployments/backend.yml -b build-output
-	sam deploy -t build-output/backend.yaml --stack-name nordshare-backend \
+	sam deploy -t build-output/backend.yaml --stack-name ${APP_NAME}-backend \
 		--s3-bucket nordshare-pipeline-artifactstore-sacci84s97in --s3-prefix build-output  \
 		--capabilities CAPABILITY_IAM
