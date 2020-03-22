@@ -1,5 +1,9 @@
 Transform: AWS::Serverless-2016-10-31
 
+Parameters:
+  DeployerRoleArn:
+    Type: String
+
 Globals:
   Function:
     Runtime: go1.x
@@ -8,15 +12,77 @@ Globals:
     AutoPublishAlias: live
     DeploymentPreference:
       Type: AllAtOnce
+    Tracing: Active
 
 Resources:
+
+  Key:
+    Type: AWS::KMS::Key
+    Properties:
+      Enabled: true
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+      KeyPolicy:
+        Version: 2012-10-17
+        Statement:
+          - Action: kms:*
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Resource: '*'
+          - Action: kms:CreateKey
+            Effect: Allow
+            Principal:
+              AWS: !Ref DeployerRoleArn
+            Resource: '*'
+          - Action:
+              - kms:EnableKey
+              - kms:DisableKey
+              - kms:EnableKeyRotation
+              - kms:DisableKeyRotation
+              - kms:PutKeyPolicy
+              - kms:ScheduleKeyDeletion
+              - kms:TagResource
+              - kms:UntagResource
+            Effect: Allow
+            Principal:
+              AWS: !Ref DeployerRoleArn
+            Resource: '*'
+
   Saver:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../cmd/saver
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref Table
+        - KMSEncryptPolicy:
+            KeyId: !Ref Key
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /api/notes
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+          KEY_ID: !Ref Key
 
   Table:
-    Type: AWS::Serverless::SimpleTable
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
   Api:
     Type: AWS::Serverless::Api
@@ -45,6 +111,7 @@ Resources:
       OpenApiVersion: 3.0.3
       StageName: stage
       EndpointConfiguration: REGIONAL
+      TracingEnabled: true
 
   AccessLogGroup:
     Type: AWS::Logs::LogGroup

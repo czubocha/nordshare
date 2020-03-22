@@ -1,4 +1,5 @@
 openapi: 3.0.1
+
 info:
   title: nordshare
   version: 1.0.0
@@ -7,8 +8,15 @@ info:
     altText: nordshare
   contact:
     email: tomasz.czubcha@gmail.com
+
+x-amazon-apigateway-request-validators:
+  all:
+    validateRequestBody: true
+    validateRequestParameters: true
+x-amazon-apigateway-request-validator: all
+
 paths:
-  /notes:
+  /api/notes:
     post:
       summary: save a note
       x-amazon-apigateway-integration:
@@ -36,7 +44,11 @@ paths:
                 {"id": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef"}
 
 servers:
-  - url: https://nordshare.com
+  - url: https://d2hyhtpm35gjgk.cloudfront.net/{basePath}
+    variables:
+      basePath:
+        default: /api
+        description: base path for compability with Cloudfront cache behavior path pattern
 
 components:
   schemas:
@@ -47,14 +59,26 @@ components:
         content:
           type: string
           description: content of note
-        ttl:
-          type: string
-          description: expiration time of note
+          minLength: 1
+          maxLength: 140
         readPassword:
           type: string
           description: password for read-only access
+          minLength: 1
+          maxLength: 50
+          format: password
+          writeOnly: true
         adminPasword:
           type: string
           description: password for note modification
+          minLength: 1
+          maxLength: 50
+          format: password
+          writeOnly: true
+        ttl:
+          type: number
+          description: time to live of note
+          minimum: 1
+          maximum: 1440
       required:
         - content

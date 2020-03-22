@@ -5,7 +5,12 @@ phases:
       golang: 1.14
   build:
     commands:
-      - sam validate -t deployments/backend.yml
+#      https://github.com/aws/aws-codebuild-docker-images/releases/tag/20.03.13
+#      https://github.com/awslabs/serverless-application-model/releases/tag/v1.22.0
+#      Amazon Linux 2 CodeBuild docker image has installed the old version of SAM
+#      which doesn't have yet DynamoDBWritePolicy for lambda
+#      what makes template validation fail
+#     - sam validate -t deployments/backend.yml
       - sam validate -t deployments/cloudfront.yml
       - go vet ./...
       - go test ./...

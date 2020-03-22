@@ -20,6 +20,7 @@ parent_deploy:
 backend_deploy:
 	sam validate -t deployments/backend.yml
 	sam build -t deployments/backend.yml -b build-output
-	sam deploy -t build-output/backend.yaml --stack-name ${APP_NAME}-backend \
-		--s3-bucket nordshare-pipeline-artifactstore-sacci84s97in --s3-prefix build-output  \
-		--capabilities CAPABILITY_IAM
+	sam deploy -t build-output/template.yaml --stack-name ${APP_NAME}-backend \
+		--s3-bucket nordshare-pipeline-r3jtocla6l2x-artifactstore-i7g9wmuxb77c --s3-prefix build-output  \
+		--capabilities CAPABILITY_IAM \
+		--parameter-overrides ParameterKey=DeployerRoleArn,ParameterValue=arn:aws:iam::071572870590:role/nordshare-Pipeline-R3JTOCLA6L2X-DeployBackendRole-VMRWG4BSFMMP

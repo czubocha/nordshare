@@ -6,8 +6,8 @@ phases:
       - npm i -g typescript
   build:
     commands:
-      - tsc frontend/index.ts
+      - tsc website/index.ts
 artifacts:
   files:
     - index.js
-  base-directory: frontend
+  base-directory: website
