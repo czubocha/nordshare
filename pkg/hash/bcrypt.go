@@ -6,7 +6,7 @@ import (
 	"nordshare/pkg/note"
 )
 
-func HashNote(note *note.Note) error {
+func Passwords(note *note.Note) error {
 	if len(note.ReadPassword) > 0 {
 		if err := hash(&note.ReadPassword); err != nil {
 			return fmt.Errorf("hash: %w", err)
@@ -18,6 +18,19 @@ func HashNote(note *note.Note) error {
 		}
 	}
 	return nil
+}
+
+func HasReadAccess(note note.Note, password []byte) bool {
+	if len(note.ReadPassword) == 0 {
+		return true
+	}
+	if err := bcrypt.CompareHashAndPassword(note.ReadPassword, password); err == nil {
+		return true
+	}
+	if len(note.WritePassword) > 0 && bcrypt.CompareHashAndPassword(note.WritePassword, password) == nil {
+		return true
+	}
+	return false
 }
 
 func hash(content *[]byte) error {

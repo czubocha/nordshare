@@ -15,7 +15,7 @@ func NewResponse(status int, body ...interface{}) (response events.APIGatewayPro
 	}
 	bytes, err := json.Marshal(body[0])
 	if err != nil {
-		log.Print(err)
+		log.Printf("api: %v", err)
 		return
 	}
 	response.Body = string(bytes)

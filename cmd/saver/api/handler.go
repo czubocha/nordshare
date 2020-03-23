@@ -36,24 +36,24 @@ type (
 func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h *Handler) (events.APIGatewayProxyResponse, error) {
 	var in input
 	if err := json.Unmarshal([]byte(request.Body), &in); err != nil {
-		log.Print(err)
+		log.Printf("saver: %v", err)
 		return api.NewResponse(http.StatusBadRequest)
 	}
 	n := convert(in)
 	if err := h.EncryptContent(&n); err != nil {
-		log.Print(err)
+		log.Printf("saver: %v", err)
 		return api.NewResponse(http.StatusInternalServerError)
 	}
-	if err := hash.HashNote(&n); err != nil {
-		log.Print(err)
+	if err := hash.Passwords(&n); err != nil {
+		log.Printf("saver: %v", err)
 		return api.NewResponse(http.StatusInternalServerError)
 	}
 	id := request.RequestContext.RequestID
 	if err := h.SaveNote(ctx, n, id); err != nil {
-		log.Print(err)
+		log.Printf("saver: %v", err)
 		return api.NewResponse(http.StatusInternalServerError)
 	}
-	return api.NewResponse(http.StatusOK, output{ID: id})
+	return api.NewResponse(http.StatusCreated, output{ID: id})
 }
 
 func convert(input input) note.Note {

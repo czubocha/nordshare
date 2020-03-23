@@ -40,8 +40,35 @@ paths:
                   id:
                     type: string
                     description: id of saved note
-              example:
-                {"id": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef"}
+                    required: true
+                    format: uuid
+  /api/notes/{id}:
+    get:
+      summary: read a note
+      x-amazon-apigateway-integration:
+        httpMethod: POST
+        type: aws_proxy
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Reader.Alias}/invocations
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/password'
+      responses:
+        200:
+          description: note read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: content of read note
+                    required: true
+                  ttl:
+                    type: number
+                    description: minutes left to note expiration
+                    required: true
 
 servers:
   - url: https://d2hyhtpm35gjgk.cloudfront.net/{basePath}
@@ -77,8 +104,26 @@ components:
           writeOnly: true
         ttl:
           type: number
-          description: time to live of note
+          description: minutes left to note expiration
           minimum: 1
           maximum: 1440
+          default: 1440
       required:
         - content
+  parameters:
+    id:
+      in: path
+      name: id
+      schema:
+        type: string
+        format: uuid
+      required: true
+      description: id of a note to read
+    password:
+      in: header
+      name: password
+      schema:
+        type: string
+        format: password
+      required: false
+      description: read or write a password of a note to read

@@ -70,6 +70,27 @@ Resources:
           TABLE_NAME: !Ref Table
           KEY_ID: !Ref Key
 
+  Reader:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../cmd/reader
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref Table
+        - KMSDecryptPolicy:
+            KeyId: !Ref Key
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /api/notes/{id}
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+          KEY_ID: !Ref Key
+
   Table:
     Type: AWS::DynamoDB::Table
     Properties:

@@ -6,9 +6,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"log"
+	"math"
 	"nordshare/pkg/note"
 	"time"
 )
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+
+const ErrNoteExpired = Error("storage: note has expired")
 
 type Note struct {
 	ID            string `json:"id"`
@@ -28,7 +36,7 @@ func NewRepository(client *dynamodb.DynamoDB, tableName string) *repository {
 }
 
 func (r *repository) SaveNote(ctx context.Context, note note.Note, id string) error {
-	storageNote := convert(note, id)
+	storageNote := convertToStorage(note, id)
 	item, err := dynamodbattribute.MarshalMap(storageNote)
 	if err != nil {
 		return fmt.Errorf("storage: %w", err)
@@ -43,7 +51,30 @@ func (r *repository) SaveNote(ctx context.Context, note note.Note, id string) er
 	return nil
 }
 
-func convert(note note.Note, id string) Note {
+func (r *repository) ReadNote(ctx context.Context, id string) (note.Note, error) {
+	input := dynamodb.GetItemInput{
+		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
+		TableName: aws.String(r.tableName)}
+	output, err := r.GetItemWithContext(ctx, &input)
+	if err != nil {
+		log.Print("storage: %w", err)
+		return note.Note{}, ErrNoteExpired
+	}
+	n := Note{}
+	if err = dynamodbattribute.UnmarshalMap(output.Item, &n); err != nil {
+		return note.Note{}, fmt.Errorf("storage: %w", err)
+	}
+	if isExpired(n.TTL) {
+		return note.Note{}, ErrNoteExpired
+	}
+	return convertFromStorage(n), nil
+}
+
+func isExpired(ttl int64) bool {
+	return time.Now().After(time.Unix(ttl, 0))
+}
+
+func convertToStorage(note note.Note, id string) Note {
 	n := Note{
 		ID:            id,
 		Content:       note.Content,
@@ -51,9 +82,30 @@ func convert(note note.Note, id string) Note {
 		WritePassword: note.WritePassword,
 	}
 	if note.TTL > 0 {
-		n.TTL = time.Now().Add(time.Duration(note.TTL) * time.Minute).Unix()
+		n.TTL = nowPlusMinutes(note.TTL)
 	} else {
-		n.TTL = time.Now().Add(24 * time.Hour).Unix()
+		n.TTL = tomorrow()
 	}
 	return n
+}
+
+func tomorrow() int64 {
+	return time.Now().Add(24 * time.Hour).Unix()
+}
+
+func nowPlusMinutes(minutes int64) int64 {
+	return time.Now().Add(time.Duration(minutes) * time.Minute).Unix()
+}
+
+func convertFromStorage(n Note) note.Note {
+	return note.Note{
+		Content:       n.Content,
+		ReadPassword:  n.ReadPassword,
+		WritePassword: n.WritePassword,
+		TTL:           getRemainingMinutes(n.TTL),
+	}
+}
+
+func getRemainingMinutes(unixTime int64) int64 {
+	return int64(math.Ceil(time.Until(time.Unix(unixTime, 0)).Minutes()))
 }

@@ -22,15 +22,34 @@ func (s service) EncryptContent(note *note.Note) error {
 	return nil
 }
 
-func (s service) encrypt(content *[]byte, keyID string) error {
+func (s service) DecryptContent(note *note.Note) error {
+	if err := s.decrypt(&note.Content); err != nil {
+		return fmt.Errorf("decrypt: %w", err)
+	}
+	return nil
+}
+
+func (s service) encrypt(plaintext *[]byte, keyID string) error {
 	input := kms.EncryptInput{
 		KeyId:     &keyID,
-		Plaintext: *content,
+		Plaintext: *plaintext,
 	}
 	output, err := s.client.Encrypt(&input)
 	if err != nil {
 		return err
 	}
-	*content = output.CiphertextBlob
+	*plaintext = output.CiphertextBlob
+	return nil
+}
+
+func (s service) decrypt(ciphertext *[]byte) error {
+	input := kms.DecryptInput{
+		CiphertextBlob: *ciphertext,
+	}
+	output, err := s.client.Decrypt(&input)
+	if err != nil {
+		return err
+	}
+	*ciphertext = output.Plaintext
 	return nil
 }
