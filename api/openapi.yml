@@ -69,6 +69,34 @@ paths:
                     type: number
                     description: minutes left to note expiration
                     required: true
+    delete:
+      summary: delete a note
+      x-amazon-apigateway-integration:
+        httpMethod: POST
+        type: aws_proxy
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Remover.Alias}/invocations
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/password'
+      responses:
+        200:
+          description: note deleted
+    put:
+      summary: update a note
+      x-amazon-apigateway-integration:
+        httpMethod: POST
+        type: aws_proxy
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Modifier.Alias}/invocations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update'
+      responses:
+        200:
+          description: note updated
 
 servers:
   - url: https://d2hyhtpm35gjgk.cloudfront.net/{basePath}
@@ -79,15 +107,23 @@ servers:
 
 components:
   schemas:
+    content:
+      type: string
+      description: content of note
+      minLength: 1
+      maxLength: 140
+    ttl:
+      type: number
+      description: minutes left to note expiration
+      minimum: 1
+      maximum: 1440
+      default: 1440
     note:
       type: object
       description: note with properties
       properties:
         content:
-          type: string
-          description: content of note
-          minLength: 1
-          maxLength: 140
+          $ref: '#/components/schemas/content'
         readPassword:
           type: string
           description: password for read-only access
@@ -103,13 +139,18 @@ components:
           format: password
           writeOnly: true
         ttl:
-          type: number
-          description: minutes left to note expiration
-          minimum: 1
-          maximum: 1440
-          default: 1440
+          $ref: '#/components/schemas/ttl'
       required:
         - content
+    update:
+      type: object
+      description: update of note
+      properties:
+        content:
+          $ref: '#/components/schemas/content'
+        ttl:
+          $ref: '#/components/schemas/ttl'
+
   parameters:
     id:
       in: path
@@ -118,7 +159,7 @@ components:
         type: string
         format: uuid
       required: true
-      description: id of a note to read
+      description: id of a note
     password:
       in: header
       name: password
@@ -126,4 +167,4 @@ components:
         type: string
         format: password
       required: false
-      description: read or write a password of a note to read
+      description: password for a note

@@ -15,8 +15,8 @@ func NewService(keyID string, client *kms.KMS) *service {
 	return &service{keyID: keyID, client: client}
 }
 
-func (s service) EncryptContent(note *note.Note) error {
-	if err := s.encrypt(&note.Content, s.keyID); err != nil {
+func (s service) Encrypt(content *[]byte) error {
+	if err := s.encrypt(content, s.keyID); err != nil {
 		return fmt.Errorf("encrypt: %w", err)
 	}
 	return nil

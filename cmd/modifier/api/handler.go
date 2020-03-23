@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
 	"log"
 	"net/http"
@@ -17,25 +18,31 @@ const (
 )
 
 type (
-	output struct {
+	input struct {
 		Content string `json:"content"`
 		TTL     int64  `json:"ttl"`
 	}
 	Handler struct {
-		reader
-		decrypter
+		modifier
+		encrypter
 	}
-	reader interface {
+	modifier interface {
 		ReadNote(context.Context, string) (note.Note, error)
+		UpdateNote(context.Context, []byte, int64, string) error
 	}
-	decrypter interface {
-		DecryptContent(*note.Note) error
+	encrypter interface {
+		Encrypt(*[]byte) error
 	}
 )
 
 func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h *Handler) (events.APIGatewayProxyResponse, error) {
+	var in input
 	id := request.PathParameters[idPathParamName]
 	password := request.Headers[passwordHeaderName]
+	if err := json.Unmarshal([]byte(request.Body), &in); err != nil {
+		log.Printf("modifier: %v", err)
+		return api.NewResponse(http.StatusBadRequest)
+	}
 	n, err := h.ReadNote(ctx, id)
 	if err != nil {
 		log.Printf("reader: %v", err)
@@ -47,20 +54,22 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 			return api.NewResponse(http.StatusInternalServerError)
 		}
 	}
-	if hash.HasReadAccess(n, []byte(password)) == false {
-		log.Print("reader: incorrect password")
+	if hash.HasWriteAccess(n, []byte(password)) == false {
+		log.Print("remover: incorrect password")
 		return api.NewResponse(http.StatusUnauthorized)
 	}
-	if err := h.DecryptContent(&n); err != nil {
-		log.Printf("reader: %v", err)
+	content := []byte(in.Content)
+	if err := h.Encrypt(&content); err != nil {
+		log.Printf("modifier: %v", err)
 		return api.NewResponse(http.StatusInternalServerError)
 	}
-	return api.NewResponse(http.StatusOK, output{
-		Content: string(n.Content),
-		TTL:     n.TTL,
-	})
+	if err := h.UpdateNote(ctx, content, in.TTL, id); err != nil {
+		log.Printf("modifier: %v", err)
+		return api.NewResponse(http.StatusInternalServerError)
+	}
+	return api.NewResponse(http.StatusOK)
 }
 
-func NewHandler(reader reader, decrypter decrypter) *Handler {
-	return &Handler{reader: reader, decrypter: decrypter}
+func NewHandler(saver modifier, encrypter encrypter) *Handler {
+	return &Handler{modifier: saver, encrypter: encrypter}
 }

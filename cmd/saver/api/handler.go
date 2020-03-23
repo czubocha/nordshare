@@ -29,7 +29,7 @@ type (
 		SaveNote(context.Context, note.Note, string) error
 	}
 	encrypter interface {
-		EncryptContent(*note.Note) error
+		Encrypt(*[]byte) error
 	}
 )
 
@@ -40,7 +40,7 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 		return api.NewResponse(http.StatusBadRequest)
 	}
 	n := convert(in)
-	if err := h.EncryptContent(&n); err != nil {
+	if err := h.Encrypt(&n.Content); err != nil {
 		log.Printf("saver: %v", err)
 		return api.NewResponse(http.StatusInternalServerError)
 	}

@@ -17,16 +17,13 @@ const (
 )
 
 type (
-	output struct {
-		Content string `json:"content"`
-		TTL     int64  `json:"ttl"`
-	}
 	Handler struct {
-		reader
+		remover
 		decrypter
 	}
-	reader interface {
+	remover interface {
 		ReadNote(context.Context, string) (note.Note, error)
+		DeleteNote(context.Context, string) error
 	}
 	decrypter interface {
 		DecryptContent(*note.Note) error
@@ -47,20 +44,17 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 			return api.NewResponse(http.StatusInternalServerError)
 		}
 	}
-	if hash.HasReadAccess(n, []byte(password)) == false {
-		log.Print("reader: incorrect password")
+	if hash.HasWriteAccess(n, []byte(password)) == false {
+		log.Print("remover: incorrect password")
 		return api.NewResponse(http.StatusUnauthorized)
 	}
-	if err := h.DecryptContent(&n); err != nil {
-		log.Printf("reader: %v", err)
-		return api.NewResponse(http.StatusInternalServerError)
+	if err = h.DeleteNote(ctx, id); err != nil {
+		log.Printf("remover: %v", err)
+		return api.NewResponse(http.StatusUnauthorized)
 	}
-	return api.NewResponse(http.StatusOK, output{
-		Content: string(n.Content),
-		TTL:     n.TTL,
-	})
+	return api.NewResponse(http.StatusOK)
 }
 
-func NewHandler(reader reader, decrypter decrypter) *Handler {
-	return &Handler{reader: reader, decrypter: decrypter}
+func NewHandler(remover remover) *Handler {
+	return &Handler{remover: remover}
 }

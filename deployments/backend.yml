@@ -16,6 +16,8 @@ Globals:
 
 Resources:
 
+### KEY ###
+
   Key:
     Type: AWS::KMS::Key
     Properties:
@@ -48,6 +50,8 @@ Resources:
             Principal:
               AWS: !Ref DeployerRoleArn
             Resource: '*'
+
+  ### LAMBDAS ###
 
   Saver:
     Type: AWS::Serverless::Function
@@ -91,6 +95,47 @@ Resources:
           TABLE_NAME: !Ref Table
           KEY_ID: !Ref Key
 
+  Remover:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../cmd/remover
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Method: delete
+            Path: /api/notes/{id}
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+
+  Modifier:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../cmd/modifier
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+        - KMSEncryptPolicy:
+            KeyId: !Ref Key
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /api/notes/{id}
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+          KEY_ID: !Ref Key
+
+  ### DYNAMODB ###
+
   Table:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -104,6 +149,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+
+  ### API GATEWAY ###
 
   Api:
     Type: AWS::Serverless::Api

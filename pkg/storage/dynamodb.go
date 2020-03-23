@@ -51,13 +51,43 @@ func (r *repository) SaveNote(ctx context.Context, note note.Note, id string) er
 	return nil
 }
 
+func (r *repository) UpdateNote(ctx context.Context, content []byte, ttl int64, id string) error {
+	const (
+		contentAttributeName            = "content"
+		contentExpressionAttributeValue = ":c"
+		ttlAttributeName                = "ttl"
+		ttlExpressionAttributeName      = "#ttl"
+		ttlExpressionAttributeValue     = ":t"
+	)
+	ttlAttVal, err := dynamodbattribute.Marshal(nowPlusMinutes(ttl))
+	if err != nil {
+		return fmt.Errorf("storage: %w", err)
+	}
+	input := dynamodb.UpdateItemInput{
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			contentExpressionAttributeValue: {B: content},
+			ttlExpressionAttributeValue:     ttlAttVal},
+		ExpressionAttributeNames: map[string]*string{
+			ttlExpressionAttributeName: aws.String(ttlAttributeName),
+		},
+		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
+		TableName: aws.String(r.tableName),
+		UpdateExpression: aws.String(fmt.Sprintf("set %v = %v, %v = %v",
+			contentAttributeName, contentExpressionAttributeValue, ttlExpressionAttributeName, ttlExpressionAttributeValue)),
+	}
+	if _, err := r.UpdateItemWithContext(ctx, &input); err != nil {
+		return fmt.Errorf("storage: %w", err)
+	}
+	return nil
+}
+
 func (r *repository) ReadNote(ctx context.Context, id string) (note.Note, error) {
 	input := dynamodb.GetItemInput{
 		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
 		TableName: aws.String(r.tableName)}
 	output, err := r.GetItemWithContext(ctx, &input)
 	if err != nil {
-		log.Print("storage: %w", err)
+		log.Printf("storage: %v", err)
 		return note.Note{}, ErrNoteExpired
 	}
 	n := Note{}
@@ -68,6 +98,17 @@ func (r *repository) ReadNote(ctx context.Context, id string) (note.Note, error)
 		return note.Note{}, ErrNoteExpired
 	}
 	return convertFromStorage(n), nil
+}
+
+func (r *repository) DeleteNote(ctx context.Context, id string) error {
+	input := dynamodb.DeleteItemInput{
+		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
+		TableName: aws.String(r.tableName)}
+	_, err := r.DeleteItemWithContext(ctx, &input)
+	if err != nil {
+		return fmt.Errorf("storage: %w", err)
+	}
+	return nil
 }
 
 func isExpired(ttl int64) bool {
