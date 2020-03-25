@@ -8,8 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/kelseyhightower/envconfig"
-	"nordshare/cmd/remover/api"
-	"nordshare/pkg/storage"
+	"github/czubocha/nordshare/cmd/remover/api"
+	"github/czubocha/nordshare/pkg/storage"
 )
 
 var h *api.Handler

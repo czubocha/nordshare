@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/kelseyhightower/envconfig"
-	"nordshare/cmd/reader/api"
-	"nordshare/pkg/encryption"
-	"nordshare/pkg/storage"
+	"github/czubocha/nordshare/cmd/reader/api"
+	"github/czubocha/nordshare/pkg/encryption"
+	"github/czubocha/nordshare/pkg/storage"
 )
 
 var h *api.Handler

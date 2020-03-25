@@ -18,16 +18,21 @@ Resources:
         Logging:
           Bucket: !GetAtt AccessLogs.DomainName
           IncludeCookies: true
+        HttpVersion: http2
         CacheBehaviors:
           - ForwardedValues:
-              QueryString: true
+              Headers:
+                - password
+              QueryString: false
+            DefaultTTL: 0
             AllowedMethods: [GET,HEAD,OPTIONS,PUT,POST,PATCH,DELETE]
             PathPattern: api/*
             TargetOriginId: api
             ViewerProtocolPolicy: redirect-to-https
         DefaultCacheBehavior:
+          DefaultTTL: 0
           ForwardedValues:
-            QueryString: true
+            QueryString: false
           TargetOriginId: frontend
           ViewerProtocolPolicy: redirect-to-https
         Origins:

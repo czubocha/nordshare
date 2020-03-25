@@ -3,12 +3,12 @@ package api
 import (
 	"context"
 	"github.com/aws/aws-lambda-go/events"
+	"github/czubocha/nordshare"
+	"github/czubocha/nordshare/internal/api"
+	"github/czubocha/nordshare/pkg/hash"
+	"github/czubocha/nordshare/pkg/storage"
 	"log"
 	"net/http"
-	"nordshare/internal/api"
-	"nordshare/pkg/hash"
-	"nordshare/pkg/note"
-	"nordshare/pkg/storage"
 )
 
 const (
@@ -22,11 +22,11 @@ type (
 		decrypter
 	}
 	remover interface {
-		ReadNote(context.Context, string) (note.Note, error)
+		ReadNote(context.Context, string) (nordshare.Note, error)
 		DeleteNote(context.Context, string) error
 	}
 	decrypter interface {
-		DecryptContent(*note.Note) error
+		Decrypt(*nordshare.Note) error
 	}
 )
 
@@ -44,13 +44,13 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 			return api.NewResponse(http.StatusInternalServerError)
 		}
 	}
-	if hash.HasWriteAccess(n, []byte(password)) == false {
+	if !hash.HasWriteAccess(n, []byte(password)) {
 		log.Print("remover: incorrect password")
 		return api.NewResponse(http.StatusUnauthorized)
 	}
 	if err = h.DeleteNote(ctx, id); err != nil {
 		log.Printf("remover: %v", err)
-		return api.NewResponse(http.StatusUnauthorized)
+		return api.NewResponse(http.StatusInternalServerError)
 	}
 	return api.NewResponse(http.StatusOK)
 }

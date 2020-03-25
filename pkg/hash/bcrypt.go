@@ -2,11 +2,11 @@ package hash
 
 import (
 	"fmt"
+	"github/czubocha/nordshare"
 	"golang.org/x/crypto/bcrypt"
-	"nordshare/pkg/note"
 )
 
-func Passwords(note *note.Note) error {
+func Passwords(note *nordshare.Note) error {
 	if len(note.ReadPassword) > 0 {
 		if err := hash(&note.ReadPassword); err != nil {
 			return fmt.Errorf("hash: %w", err)
@@ -20,11 +20,11 @@ func Passwords(note *note.Note) error {
 	return nil
 }
 
-func HasReadAccess(note note.Note, password []byte) bool {
+func HasReadAccess(note nordshare.Note, password []byte) bool {
 	return notExistsOrMatches(note.ReadPassword, password) || existsAndMatches(note.WritePassword, password)
 }
 
-func HasWriteAccess(note note.Note, password []byte) bool {
+func HasWriteAccess(note nordshare.Note, password []byte) bool {
 	return existsAndMatches(note.WritePassword, password)
 }
 

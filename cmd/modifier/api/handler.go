@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
+	"github/czubocha/nordshare"
+	"github/czubocha/nordshare/internal/api"
+	"github/czubocha/nordshare/pkg/hash"
+	"github/czubocha/nordshare/pkg/storage"
 	"log"
 	"net/http"
-	"nordshare/internal/api"
-	"nordshare/pkg/hash"
-	"nordshare/pkg/note"
-	"nordshare/pkg/storage"
 )
 
 const (
@@ -27,7 +27,7 @@ type (
 		encrypter
 	}
 	modifier interface {
-		ReadNote(context.Context, string) (note.Note, error)
+		ReadNote(context.Context, string) (nordshare.Note, error)
 		UpdateNote(context.Context, []byte, int64, string) error
 	}
 	encrypter interface {
@@ -54,7 +54,7 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 			return api.NewResponse(http.StatusInternalServerError)
 		}
 	}
-	if hash.HasWriteAccess(n, []byte(password)) == false {
+	if !hash.HasWriteAccess(n, []byte(password)) {
 		log.Print("remover: incorrect password")
 		return api.NewResponse(http.StatusUnauthorized)
 	}

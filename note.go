@@ -1,4 +1,4 @@
-package note
+package nordshare
 
 type Note struct {
 	Content       []byte `json:"content"`

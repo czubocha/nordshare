@@ -24,3 +24,11 @@ backend_deploy:
 		--s3-bucket nordshare-pipeline-r3jtocla6l2x-artifactstore-i7g9wmuxb77c --s3-prefix build-output  \
 		--capabilities CAPABILITY_IAM \
 		--parameter-overrides ParameterKey=DeployerRoleArn,ParameterValue=arn:aws:iam::071572870590:role/nordshare-Pipeline-R3JTOCLA6L2X-DeployBackendRole-VMRWG4BSFMMP
+
+cloudfront_deploy:
+	sam validate -t deployments/cloudfront.yml
+	sam deploy -t deployments/cloudfront.yml --stack-name ${APP_NAME}-cloudfront \
+		--capabilities CAPABILITY_IAM \
+		--parameter-overrides ParameterKey=ApiId,ParameterValue=rhf5cvvuog \
+			ParameterKey=ApiStage,ParameterValue=stage ParameterKey=RefererSecret,ParameterValue=$REFERER_SECRET \
+			ParameterKey=FrontendWebsiteURL,ParameterValue=http://nordshare.s3-website.eu-central-1.amazonaws.com

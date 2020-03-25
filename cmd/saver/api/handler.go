@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
+	"github/czubocha/nordshare"
+	"github/czubocha/nordshare/internal/api"
+	"github/czubocha/nordshare/pkg/hash"
 	"log"
 	"net/http"
-	"nordshare/internal/api"
-	"nordshare/pkg/hash"
-	"nordshare/pkg/note"
 )
 
 type (
@@ -26,7 +26,7 @@ type (
 		encrypter
 	}
 	saver interface {
-		SaveNote(context.Context, note.Note, string) error
+		SaveNote(context.Context, nordshare.Note, string) error
 	}
 	encrypter interface {
 		Encrypt(*[]byte) error
@@ -56,8 +56,8 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 	return api.NewResponse(http.StatusCreated, output{ID: id})
 }
 
-func convert(input input) note.Note {
-	return note.Note{
+func convert(input input) nordshare.Note {
+	return nordshare.Note{
 		Content:       []byte(input.Content),
 		ReadPassword:  []byte(input.ReadPassword),
 		WritePassword: []byte(input.WritePassword),

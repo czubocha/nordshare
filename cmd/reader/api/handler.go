@@ -3,12 +3,12 @@ package api
 import (
 	"context"
 	"github.com/aws/aws-lambda-go/events"
+	"github/czubocha/nordshare"
+	"github/czubocha/nordshare/internal/api"
+	"github/czubocha/nordshare/pkg/hash"
+	"github/czubocha/nordshare/pkg/storage"
 	"log"
 	"net/http"
-	"nordshare/internal/api"
-	"nordshare/pkg/hash"
-	"nordshare/pkg/note"
-	"nordshare/pkg/storage"
 )
 
 const (
@@ -26,10 +26,10 @@ type (
 		decrypter
 	}
 	reader interface {
-		ReadNote(context.Context, string) (note.Note, error)
+		ReadNote(context.Context, string) (nordshare.Note, error)
 	}
 	decrypter interface {
-		DecryptContent(*note.Note) error
+		Decrypt(*[]byte) error
 	}
 )
 
@@ -47,11 +47,11 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 			return api.NewResponse(http.StatusInternalServerError)
 		}
 	}
-	if hash.HasReadAccess(n, []byte(password)) == false {
+	if !hash.HasReadAccess(n, []byte(password)) {
 		log.Print("reader: incorrect password")
 		return api.NewResponse(http.StatusUnauthorized)
 	}
-	if err := h.DecryptContent(&n); err != nil {
+	if err := h.Decrypt(&n.Content); err != nil {
 		log.Printf("reader: %v", err)
 		return api.NewResponse(http.StatusInternalServerError)
 	}

@@ -3,15 +3,18 @@ package encryption
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/kms"
-	"nordshare/pkg/note"
 )
 
 type service struct {
 	keyID  string
-	client *kms.KMS
+	client crypter
+}
+type crypter interface {
+	Encrypt(input *kms.EncryptInput) (*kms.EncryptOutput, error)
+	Decrypt(input *kms.DecryptInput) (*kms.DecryptOutput, error)
 }
 
-func NewService(keyID string, client *kms.KMS) *service {
+func NewService(keyID string, client crypter) *service {
 	return &service{keyID: keyID, client: client}
 }
 
@@ -22,8 +25,8 @@ func (s service) Encrypt(content *[]byte) error {
 	return nil
 }
 
-func (s service) DecryptContent(note *note.Note) error {
-	if err := s.decrypt(&note.Content); err != nil {
+func (s service) Decrypt(content *[]byte) error {
+	if err := s.decrypt(content); err != nil {
 		return fmt.Errorf("decrypt: %w", err)
 	}
 	return nil

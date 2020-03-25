@@ -6,11 +6,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github/czubocha/nordshare"
 	"log"
 	"math"
-	"nordshare/pkg/note"
 	"time"
 )
+
+const keyAttributeName = "id"
 
 type Error string
 
@@ -35,7 +37,7 @@ func NewRepository(client *dynamodb.DynamoDB, tableName string) *repository {
 	return &repository{client, tableName}
 }
 
-func (r *repository) SaveNote(ctx context.Context, note note.Note, id string) error {
+func (r *repository) SaveNote(ctx context.Context, note nordshare.Note, id string) error {
 	storageNote := convertToStorage(note, id)
 	item, err := dynamodbattribute.MarshalMap(storageNote)
 	if err != nil {
@@ -59,7 +61,7 @@ func (r *repository) UpdateNote(ctx context.Context, content []byte, ttl int64, 
 		ttlExpressionAttributeName      = "#ttl"
 		ttlExpressionAttributeValue     = ":t"
 	)
-	ttlAttVal, err := dynamodbattribute.Marshal(nowPlusMinutes(ttl))
+	ttlAttVal, err := dynamodbattribute.Marshal(nowPlusMinutes(ttl, time.Now()))
 	if err != nil {
 		return fmt.Errorf("storage: %w", err)
 	}
@@ -70,7 +72,7 @@ func (r *repository) UpdateNote(ctx context.Context, content []byte, ttl int64, 
 		ExpressionAttributeNames: map[string]*string{
 			ttlExpressionAttributeName: aws.String(ttlAttributeName),
 		},
-		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
+		Key:       map[string]*dynamodb.AttributeValue{keyAttributeName: {S: aws.String(id)}},
 		TableName: aws.String(r.tableName),
 		UpdateExpression: aws.String(fmt.Sprintf("set %v = %v, %v = %v",
 			contentAttributeName, contentExpressionAttributeValue, ttlExpressionAttributeName, ttlExpressionAttributeValue)),
@@ -81,28 +83,28 @@ func (r *repository) UpdateNote(ctx context.Context, content []byte, ttl int64, 
 	return nil
 }
 
-func (r *repository) ReadNote(ctx context.Context, id string) (note.Note, error) {
+func (r *repository) ReadNote(ctx context.Context, id string) (nordshare.Note, error) {
 	input := dynamodb.GetItemInput{
-		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
+		Key:       map[string]*dynamodb.AttributeValue{keyAttributeName: {S: aws.String(id)}},
 		TableName: aws.String(r.tableName)}
 	output, err := r.GetItemWithContext(ctx, &input)
 	if err != nil {
 		log.Printf("storage: %v", err)
-		return note.Note{}, ErrNoteExpired
+		return nordshare.Note{}, ErrNoteExpired
 	}
 	n := Note{}
 	if err = dynamodbattribute.UnmarshalMap(output.Item, &n); err != nil {
-		return note.Note{}, fmt.Errorf("storage: %w", err)
+		return nordshare.Note{}, fmt.Errorf("storage: %w", err)
 	}
-	if isExpired(n.TTL) {
-		return note.Note{}, ErrNoteExpired
+	if isExpired(n.TTL, time.Now()) {
+		return nordshare.Note{}, ErrNoteExpired
 	}
 	return convertFromStorage(n), nil
 }
 
 func (r *repository) DeleteNote(ctx context.Context, id string) error {
 	input := dynamodb.DeleteItemInput{
-		Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(id)}},
+		Key:       map[string]*dynamodb.AttributeValue{keyAttributeName: {S: aws.String(id)}},
 		TableName: aws.String(r.tableName)}
 	_, err := r.DeleteItemWithContext(ctx, &input)
 	if err != nil {
@@ -111,42 +113,48 @@ func (r *repository) DeleteNote(ctx context.Context, id string) error {
 	return nil
 }
 
-func isExpired(ttl int64) bool {
-	return time.Now().After(time.Unix(ttl, 0))
+func isExpired(ttl int64, now time.Time) bool {
+	return now.After(time.Unix(ttl, 0))
 }
 
-func convertToStorage(note note.Note, id string) Note {
-	n := Note{
+func convertToStorage(note nordshare.Note, id string) Note {
+	return Note{
 		ID:            id,
 		Content:       note.Content,
 		ReadPassword:  note.ReadPassword,
 		WritePassword: note.WritePassword,
+		TTL:           calculateTTL(note.TTL, time.Now())}
+}
+
+func calculateTTL(minutesToExpire int64, now time.Time) int64 {
+	if minutesToExpire > 0 {
+		return nowPlusMinutes(minutesToExpire, now)
 	}
-	if note.TTL > 0 {
-		n.TTL = nowPlusMinutes(note.TTL)
-	} else {
-		n.TTL = tomorrow()
-	}
-	return n
+	return tomorrow(now)
 }
 
-func tomorrow() int64 {
-	return time.Now().Add(24 * time.Hour).Unix()
+func tomorrow(now time.Time) int64 {
+	return now.Add(24 * time.Hour).Unix()
 }
 
-func nowPlusMinutes(minutes int64) int64 {
-	return time.Now().Add(time.Duration(minutes) * time.Minute).Unix()
+func nowPlusMinutes(minutes int64, now time.Time) int64 {
+	return now.Add(time.Duration(minutes) * time.Minute).Unix()
 }
 
-func convertFromStorage(n Note) note.Note {
-	return note.Note{
+func convertFromStorage(n Note) nordshare.Note {
+	return nordshare.Note{
 		Content:       n.Content,
 		ReadPassword:  n.ReadPassword,
 		WritePassword: n.WritePassword,
-		TTL:           getRemainingMinutes(n.TTL),
+		TTL:           getRemainingMinutes(n.TTL, time.Now()),
 	}
 }
 
-func getRemainingMinutes(unixTime int64) int64 {
-	return int64(math.Ceil(time.Until(time.Unix(unixTime, 0)).Minutes()))
+func getRemainingMinutes(date int64, now time.Time) int64 {
+	durationTillDate := time.Unix(date, 0).Sub(now)
+	minutesRoundedUp := math.Ceil(durationTillDate.Minutes())
+	if minutesRoundedUp < 0 {
+		return 0
+	}
+	return int64(minutesRoundedUp)
 }

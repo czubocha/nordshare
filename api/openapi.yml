@@ -94,6 +94,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/update'
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/password'
       responses:
         200:
           description: note updated
@@ -131,7 +134,7 @@ components:
           maxLength: 50
           format: password
           writeOnly: true
-        adminPasword:
+        writePasword:
           type: string
           description: password for note modification
           minLength: 1

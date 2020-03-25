@@ -7,7 +7,7 @@ Parameters:
 Globals:
   Function:
     Runtime: go1.x
-    Timeout: 5
+    Timeout: 10
     Handler: handler
     AutoPublishAlias: live
     DeploymentPreference:
@@ -16,7 +16,7 @@ Globals:
 
 Resources:
 
-### KEY ###
+  ### KEY ###
 
   Key:
     Type: AWS::KMS::Key
@@ -69,6 +69,9 @@ Resources:
             Method: post
             Path: /api/notes
             RestApiId: !Ref Api
+      DeploymentPreference:
+        Hooks:
+          PreTraffic: !Ref E2E
       Environment:
         Variables:
           TABLE_NAME: !Ref Table
@@ -134,6 +137,37 @@ Resources:
           TABLE_NAME: !Ref Table
           KEY_ID: !Ref Key
 
+  E2E:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub CodeDeployHook_${AWS::StackName}
+      CodeUri: ../cmd/e2e
+      Timeout: 30
+      DeploymentPreference:
+        Enabled: false
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref Table
+        - Statement:
+            - Effect: Allow
+              Action: codedeploy:PutLifecycleEventHookExecutionStatus
+              Resource: !Sub arn:${AWS::Partition}:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:${ServerlessDeploymentApplication}/*
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource:
+                - !Ref Saver.Version
+                - !Ref Reader.Version
+                - !Ref Modifier.Version
+                - !Ref Remover.Version
+      Environment:
+        Variables:
+          VERSION_SAVER: !Ref Saver.Version
+          VERSION_READER: !Ref Reader.Version
+          VERSION_MODIFIER: !Ref Modifier.Version
+          VERSION_REMOVER: !Ref Remover.Version
+          TABLE_NAME: !Ref Table
+
   ### DYNAMODB ###
 
   Table:
@@ -158,19 +192,27 @@ Resources:
       AccessLogSetting:
         DestinationArn: !GetAtt AccessLogGroup.Arn
         Format: >-
-          {"stage" : "$context.stage",
-          "request_id" : "$context.requestId",
-          "api_id" : "$context.apiId",
+          {"request_id" : "$context.requestId",
+          "extended_request_id":"$context.extendedRequestId",
+          "aws_endpoint_request_id": "$context.awsEndpointRequestId",
+          "validation_error_string": "$context.error.validationErrorString",
+          "error_message": "$context.error.message",
+          "$context.error.responseType": "$context.error.responseType",
+          "domain_name": "$context.domainName",
+          "domain_prefix": "$context.domainPrefix",
           "resource_path" : "$context.resourcePath",
-          "resource_id" : "$context.resourceId",
           "http_method" : "$context.httpMethod",
           "source_ip" : "$context.identity.sourceIp",
           "user-agent" : "$context.identity.userAgent",
-          "account_id" : "$context.identity.accountId",
-          "api_key" : "$context.identity.apiKey",
-          "caller" : "$context.identity.caller",
-          "user" : "$context.identity.user",
-          "user_arn" : "$context.identity.userArn"}
+          "protocol": "$context.protocol",
+          "request_ime": "$context.requestTime",
+          "xray_trace_id": "$context.xrayTraceId",
+          "integration_latency": "$context.integrationLatency",
+          "integration_status": "$context.integrationStatus",
+          "response_latency": "$context.responseLatency",
+          "response_length": "$context.responseLength",
+          "status": "$context.status"
+          }
       DefinitionBody:
         Fn::Transform:
           Name: AWS::Include
@@ -184,7 +226,6 @@ Resources:
   AccessLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub ${AWS::StackName}-api-access-log
       RetentionInDays: 14
 
 Outputs:
