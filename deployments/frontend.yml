@@ -15,7 +15,7 @@ Resources:
       LoggingConfiguration:
         DestinationBucketName: !Ref WebsiteAccessLogs
       WebsiteConfiguration:
-        IndexDocument: index.js
+        IndexDocument: index.html
 
   WebsiteBucketPolicy:
     Type: AWS::S3::BucketPolicy

@@ -237,6 +237,7 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:codedeploy:${AWS::Region}:${AWS::AccountId}:application:${AppName}*
               - Action:
                   - codedeploy:CreateDeploymentGroup
+                  - codedeploy:UpdateDeploymentGroup
                   - codedeploy:DeleteDeploymentGroup
                   - codedeploy:CreateDeployment
                   - codedeploy:DeleteDeployment

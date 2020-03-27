@@ -3,11 +3,14 @@ version: 0.2
 phases:
   install:
     commands:
-      - npm i -g typescript
+      - cd website && npm install --production
   build:
     commands:
-      - tsc website/index.ts
+      - npm run build
 artifacts:
   files:
-    - index.js
-  base-directory: website
+    - '**/*'
+  base-directory: website/build
+cache:
+  paths:
+    - website/node_modules/**/*

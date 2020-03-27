@@ -80,3 +80,55 @@ func TestNewResponse(t *testing.T) {
 		})
 	}
 }
+
+func Test_getHeaderIncasesensible(t *testing.T) {
+	type args struct {
+		headers map[string]string
+		key     string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "exact match",
+			args: args{
+				headers: map[string]string{"Password": "abc"},
+				key:     "Password",
+			},
+			want: "abc",
+		},
+		{
+			name: "uppercase",
+			args: args{
+				headers: map[string]string{"PASSWORD": "abc"},
+				key:     "Password",
+			},
+			want: "abc",
+		},
+		{
+			name: "lowercase",
+			args: args{
+				headers: map[string]string{"password": "abc"},
+				key:     "Password",
+			},
+			want: "abc",
+		},
+		{
+			name: "nonexistent key",
+			args: args{
+				headers: map[string]string{"test": "abc"},
+				key:     "Password",
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetHeaderIncasesensible(tt.args.headers, tt.args.key); got != tt.want {
+				t.Errorf("GetHeaderIncasesensible() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

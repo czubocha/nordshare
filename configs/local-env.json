@@ -1,0 +1,24 @@
+{
+  "E2E": {
+    "VERSION_SAVER": "arn:aws:lambda:eu-central-1:071572870590:function:nordshare-backend-Saver-1FNRX3YANO01I:live",
+    "VERSION_READER": "arn:aws:lambda:eu-central-1:071572870590:function:nordshare-backend-Reader-12CCXEAUX7HMJ:live",
+    "VERSION_MODIFIER": "arn:aws:lambda:eu-central-1:071572870590:function:nordshare-backend-Modifier-3PRWPIDNH6WK:live",
+    "VERSION_REMOVER": "arn:aws:lambda:eu-central-1:071572870590:function:nordshare-backend-Remover-RKKKR7GPWLFY:live",
+    "TABLE_NAME": "nordshare-backend-Table-7FLKMH179BN"
+  },
+  "Saver": {
+    "TABLE_NAME": "nordshare-backend-Table-7FLKMH179BN",
+    "KEY_ID": "2ac062f7-68a5-42e5-b811-872c3e5c18cf"
+  },
+  "Reader": {
+    "TABLE_NAME": "nordshare-backend-Table-7FLKMH179BN",
+    "KEY_ID": "2ac062f7-68a5-42e5-b811-872c3e5c18cf"
+  },
+  "Modifier": {
+    "TABLE_NAME": "nordshare-backend-Table-7FLKMH179BN",
+    "KEY_ID": "2ac062f7-68a5-42e5-b811-872c3e5c18cf"
+  },
+  "Remover": {
+    "TABLE_NAME": "nordshare-backend-Table-7FLKMH179BN"
+  }
+}

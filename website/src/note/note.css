@@ -1,0 +1,25 @@
+.passwordHint {
+    font-size: calc(1px + 1.1vmin);
+    color: red
+}
+
+.characters-hint {
+    font-size: calc(1px + 1.3vmin);
+}
+
+.security {
+    font-size: calc(1px + 1vmin);
+}
+
+.checkbox-text {
+    font-size: calc(1px + 1vmin);
+}
+
+textarea[disabled] {
+    color: black;
+}
+
+input[type="number"][disabled] {
+    font-size: calc(1px + 1.4vmin);
+    color: black;
+}

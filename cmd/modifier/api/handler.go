@@ -12,11 +12,6 @@ import (
 	"net/http"
 )
 
-const (
-	idPathParamName    = "id"
-	passwordHeaderName = "password"
-)
-
 type (
 	input struct {
 		Content string `json:"content"`
@@ -37,8 +32,8 @@ type (
 
 func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h *Handler) (events.APIGatewayProxyResponse, error) {
 	var in input
-	id := request.PathParameters[idPathParamName]
-	password := request.Headers[passwordHeaderName]
+	id := request.PathParameters[nordshare.IDPathParamName]
+	password := api.GetHeaderIncasesensible(request.Headers, nordshare.PasswordHeaderName)
 	if err := json.Unmarshal([]byte(request.Body), &in); err != nil {
 		log.Printf("modifier: %v", err)
 		return api.NewResponse(http.StatusBadRequest)
@@ -55,7 +50,7 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest, h
 		}
 	}
 	if !hash.HasWriteAccess(n, []byte(password)) {
-		log.Print("remover: incorrect password")
+		log.Print("modifier: incorrect password")
 		return api.NewResponse(http.StatusUnauthorized)
 	}
 	content := []byte(in.Content)

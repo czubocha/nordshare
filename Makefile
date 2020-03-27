@@ -32,3 +32,21 @@ cloudfront_deploy:
 		--parameter-overrides ParameterKey=ApiId,ParameterValue=rhf5cvvuog \
 			ParameterKey=ApiStage,ParameterValue=stage ParameterKey=RefererSecret,ParameterValue=$REFERER_SECRET \
 			ParameterKey=FrontendWebsiteURL,ParameterValue=http://nordshare.s3-website.eu-central-1.amazonaws.com
+
+frontend_deploy:
+	cd website && npm run build && aws s3 sync build/ s3://nordshare
+
+invoke_e2e_local:
+	sam local invoke -t build-output/template.yaml -n configs/local-env.json E2E
+
+start_api_local: build_handlers
+	sam local start-api -t deployments/backend.yml -p 8080 -n configs/local-env.json
+
+start_frontend_local:
+	cd website && npm start
+
+build_handlers:
+	GOOS=linux go build -o cmd/saver/handler ./cmd/saver
+	GOOS=linux go build -o cmd/reader/handler ./cmd/reader
+	GOOS=linux go build -o cmd/modifier/handler ./cmd/modifier
+	GOOS=linux go build -o cmd/remover/handler ./cmd/remover

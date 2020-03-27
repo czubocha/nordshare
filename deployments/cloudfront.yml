@@ -22,13 +22,18 @@ Resources:
         CacheBehaviors:
           - ForwardedValues:
               Headers:
-                - password
+                - Password
               QueryString: false
             DefaultTTL: 0
             AllowedMethods: [GET,HEAD,OPTIONS,PUT,POST,PATCH,DELETE]
             PathPattern: api/*
             TargetOriginId: api
             ViewerProtocolPolicy: redirect-to-https
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 0
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
         DefaultCacheBehavior:
           DefaultTTL: 0
           ForwardedValues:
