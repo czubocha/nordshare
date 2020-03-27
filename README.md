@@ -28,6 +28,8 @@
 * [Insomnia](https://insomnia.rest)
 * [GNU Make](https://www.gnu.org/software/make) :ox:
 
+![Architecture](https://github.com/czubocha/nordshare/blob/master/assets/architecture.png?raw=true)
+
 ### the fanciest features :tada:
 <details>
 <summary><b>ONE pipeline for backend and frontend with 0-click (master to production) continunous deployment with cacheable build environments, E2E tests and gradual deployment monitored by alarms with automatic rollback</b></summary>
@@ -54,8 +56,8 @@
 </details>  
 
 ### interesting facts:
-* AWS API Gateway lowercase headers for HTTP2 https://http2.github.io/http2-spec/#HttpHeaders'>https://http2.github.io/http2-spec/#HttpHeaders
-* local AWS API Gateway (`sam local start-api`) capitalize headers
+* AWS API Gateway lowercase headers for HTTP2 ([specification](https://http2.github.io/http2-spec/#HttpHeaders))
+* Local AWS API Gateway (`sam local start-api`) capitalize headers
 
 ---
 #### password rules:
@@ -65,7 +67,7 @@
 * reading note & time to note expiration
 * modifying content of note & time to note expiration
 * deleting note
-
+---
 * _password setting (both read & write) is **not** required_
 * _max TTL is 1 day (1440 minutes)_
 * _extending TTL possible by modifying (except case when write password is not set)_
